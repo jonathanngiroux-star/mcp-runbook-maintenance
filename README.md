@@ -1,42 +1,80 @@
 # mcp-runbook-maintenance
 
-MCP server for Runbook & Changelog Maintenance - create changelog entries, get runbook status, update runbooks, view history.
+MCP server for **Runbook & Changelog Maintenance Subscription** - fixed-cadence upkeep of
+protocol change logs, runbooks, status communication, and version-governance records — including
+operator-published NAMED amendments (v1.x/v2.1 changelogs) that buyers verified clause-by-clause.
+
+Pricing: $99-250/mo. Docs positioned as "your first investor pitch, your onboarding funnel, AND
+your SEO moat."
 
 ## Tools
 
-### create_changelog_entry
-Create a new changelog entry for a runbook.
+### `create_changelog_entry`
+Create and PERSIST a real changelog entry.
 
-**Parameters:**
-- `runbook_id` (string, required): Runbook ID
-- `type` (string, required): "create", "update", "deprecate", or "archive"
-- `title` (string, required): Change title
-- `description` (string, required): Detailed description
-- `author` (string, required): Author name
-- `version_after` (string, required): Version after change
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `version` | string | **required** | Semantic version (e.g. v2.1.0) |
+| `category` | string enum | **required** | added/changed/deprecated/removed/fixed/security |
+| `summary` | string | **required** | One-line summary |
+| `body` | string | **required** | Full changelog body text |
+| `author` | string | **required** | Author of the entry |
+| `affected_components` | array of string | - | Components affected |
+| `persist` | boolean | `true` | Persist to state |
 
-### get_runbook_status
-Get runbook status and details.
+Validates semver format and category enum. Returns the entry with breaking-change flag,
+affected components, and runbook link.
 
-**Parameters:**
-- `runbook_id` (string, optional): Runbook ID
-- `agent_id` (string, optional): Filter by agent ID
+### `get_runbook_status`
+Return real staleness/rot metrics for a runbook.
 
-### update_runbook
-Update a runbook section (auto-creates changelog entry).
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `runbook_id` | string | **required** | Runbook identifier |
 
-**Parameters:**
-- `runbook_id` (string, required): Runbook ID
-- `section_id` (string, required): Section ID to update
-- `content` (string, required): New content
-- `author` (string, required): Author name
+Returns last-modified date, days since last review vs cadence target, cadence compliance,
+per-section coverage, missing sections vs required-section template, staleness score (0-100),
+and a rot_risk verdict (low/medium/high).
 
-### get_changelog_history
-Get changelog history for a runbook.
+### `update_runbook`
+Apply and PERSIST a real section update.
 
-**Parameters:**
-- `runbook_id` (string, optional): Runbook ID
-- `limit` (integer, optional): Max entries (default: 50)
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `runbook_id` | string | **required** | Runbook identifier |
+| `section` | string | **required** | Section to update |
+| `content` | string | **required** | New section content |
+| `author` | string | **required** | Author of the update |
+| `persist` | boolean | `true` | Persist to state |
+
+Bumps the runbook revision, records a versioned history entry (who, when, what changed,
+previous content hash), updates staleness, returns diff summary (added/removed line counts,
+revision number).
+
+### `get_changelog_history`
+Return changelog entries newest-first with filtering.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `version` | string | - | Exact version filter |
+| `from_version` | string | - | From version (inclusive) |
+| `to_version` | string | - | To version (inclusive) |
+| `category` | string enum | - | Category filter |
+| `author` | string | - | Author filter |
+| `limit` | integer | 50 | Max entries (1-500) |
+
+Returns entries with summary counts and category counts.
+
+### `generate_release_notes`
+Aggregate changelog entries into release notes.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `from_version` | string | **required** | From version (inclusive) |
+| `to_version` | string | **required** | To version (inclusive) |
+
+Returns grouped-by-category markdown release notes, breaking changes called out first,
+contributors, entry counts, content hash.
 
 ## Installation
 
@@ -50,15 +88,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Connecting to Claude Desktop
+State persisted in `./state/runbook_state.json`. Override with
+`MCP_RUNBOOK_MAINTENANCE_STATE_DIR`.
+
+## Connecting to an MCP client
 
 ```json
 {
   "mcpServers": {
     "runbook-maintenance": {
-      "command": "python",
-      "args": ["/path/to/mcp-runbook-maintenance/main.py"],
-      "cwd": "/path/to/mcp-runbook-maintenance"
+      "command": "python3",
+      "args": ["/tmp/v3-services/mcp-runbook-maintenance/main.py"]
     }
   }
 }
